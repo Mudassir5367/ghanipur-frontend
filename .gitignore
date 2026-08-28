@@ -9,10 +9,11 @@ out/
 build/
 *.tsbuildinfo
 
-# secrets & env
+# secrets & env — ignore every .env* EXCEPT the templates
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
 
 # misc
 *.log
