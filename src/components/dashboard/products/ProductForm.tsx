@@ -100,7 +100,7 @@ export function ProductForm({ open, onClose, product }: Props) {
       categoryId: form.categoryId,
       unitId: form.unitId,
       sellingPrice: Number(form.sellingPrice),
-      purchaseCost: form.purchaseCost ? Number(form.purchaseCost) : undefined,
+      purchaseCost: Number(form.purchaseCost),
       minStock: form.minStock ? Number(form.minStock) : undefined,
       isAvailable: form.isAvailable,
       sku: form.sku || undefined,
@@ -111,6 +111,12 @@ export function ProductForm({ open, onClose, product }: Props) {
   };
 
   const pending = create.isPending || update.isPending;
+
+  // Profit per unit = Selling − Cost. Only shown when BOTH prices are filled.
+  const sellNum = Number(form.sellingPrice);
+  const costNum = Number(form.purchaseCost);
+  const bothPrices = form.sellingPrice.trim() !== '' && form.purchaseCost.trim() !== '' && !Number.isNaN(sellNum) && !Number.isNaN(costNum);
+  const unitProfit = bothPrices ? sellNum - costNum : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? 'Edit product' : 'Add product'}>
@@ -163,9 +169,18 @@ export function ProductForm({ open, onClose, product }: Props) {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
+          <Input label="Cost price (Rs)" type="number" step="0.01" min="0" value={form.purchaseCost} onChange={set('purchaseCost')} required />
           <Input label="Selling price (Rs)" type="number" step="0.01" min="0" value={form.sellingPrice} onChange={set('sellingPrice')} required />
-          <Input label="Purchase cost (Rs)" type="number" step="0.01" min="0" value={form.purchaseCost} onChange={set('purchaseCost')} />
         </div>
+        {/* Profit shown only when both prices are filled. */}
+        {unitProfit !== null && (
+          <div className={`flex items-center justify-between rounded-lg px-4 py-2.5 text-sm ${unitProfit < 0 ? 'bg-red-50' : 'bg-brand-50'}`}>
+            <span className="font-medium text-slate-600">Profit per unit</span>
+            <span className={`font-bold ${unitProfit < 0 ? 'text-red-600' : 'text-brand-700'}`}>
+              {unitProfit < 0 ? `– Rs ${Math.abs(unitProfit).toLocaleString()}` : `Rs ${unitProfit.toLocaleString()}`}
+            </span>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <Input label="Min stock (alert)" type="number" min="0" value={form.minStock} onChange={set('minStock')} />
           {!isEdit && <Input label="Opening stock" type="number" min="0" value={form.openingStock} onChange={set('openingStock')} hint="Optional" />}

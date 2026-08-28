@@ -1,23 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge } from '@/components/ui/Badge';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { QuickSale } from '@/components/dashboard/sales/QuickSale';
-import { useSales, useReverseSale } from '@/features/sales/hooks';
+import { useSales } from '@/features/sales/hooks';
 import { formatPKR } from '@/lib/utils';
 import { customerName, type Sale } from '@/types/sales';
 
 export default function SalesPage() {
   const { data, isLoading } = useSales({});
-  const reverse = useReverseSale();
-  const [toReverse, setToReverse] = useState<Sale | null>(null);
 
   const columns: Column<Sale>[] = [
-    { key: 'code', header: 'Code', render: (s) => <span className="font-mono text-xs text-slate-500">{s.code}</span> },
     {
       key: 'customer', header: 'Customer', render: (s) => {
         const cust = typeof s.customerId === 'object' && s.customerId ? s.customerId : null;
@@ -41,7 +35,6 @@ export default function SalesPage() {
     { key: 'due', header: 'Due', align: 'right', render: (s) => s.dueMinor > 0 ? <span className="text-red-600">{formatPKR(s.dueMinor)}</span> : '—' },
     { key: 'date', header: 'Date', render: (s) => new Date(s.soldAt).toLocaleString() },
     { key: 'status', header: 'Status', render: (s) => <Badge tone={s.status === 'COMPLETED' ? 'green' : 'slate'}>{s.status}</Badge> },
-    { key: 'actions', header: '', align: 'right', render: (s) => s.status === 'COMPLETED' ? <Button size="sm" variant="ghost" onClick={() => setToReverse(s)}>Reverse</Button> : null },
   ];
 
   return (
@@ -62,15 +55,6 @@ export default function SalesPage() {
           </Card>
         </div>
       </div>
-
-      <ConfirmDialog
-        open={!!toReverse}
-        title="Reverse sale"
-        message={`Reverse ${toReverse?.code}? Stock will be restored and any credit reversed. This is recorded, not deleted.`}
-        confirmLabel="Reverse" danger loading={reverse.isPending}
-        onClose={() => setToReverse(null)}
-        onConfirm={() => toReverse && reverse.mutate(toReverse._id, { onSuccess: () => setToReverse(null) })}
-      />
     </div>
   );
 }

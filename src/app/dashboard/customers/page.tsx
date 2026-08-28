@@ -13,9 +13,34 @@ import { useSettings } from '@/features/shop/hooks';
 import { formatPKR } from '@/lib/utils';
 import type { Customer } from '@/types/sales';
 
+type RangePreset = 'ALL' | 'TODAY' | 'YESTERDAY' | 'WEEK' | 'TWO_WEEK' | 'MONTH';
+const RANGE_LABELS: [RangePreset, string][] = [
+  ['ALL', 'All'], ['TODAY', 'Today'], ['YESTERDAY', 'Yesterday'], ['WEEK', 'Weekly'], ['TWO_WEEK', '2 Weeks'], ['MONTH', 'Monthly'],
+];
+function rangeFor(preset: RangePreset): { from?: string; to?: string } {
+  const now = new Date();
+  const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+  const daysAgo = (n: number) => { const x = new Date(now); x.setDate(now.getDate() - n); return x; };
+  switch (preset) {
+    case 'TODAY': return { from: startOfDay(now).toISOString(), to: endOfDay(now).toISOString() };
+    case 'YESTERDAY': return { from: startOfDay(daysAgo(1)).toISOString(), to: endOfDay(daysAgo(1)).toISOString() };
+    case 'WEEK': return { from: startOfDay(daysAgo(6)).toISOString(), to: endOfDay(now).toISOString() };
+    case 'TWO_WEEK': return { from: startOfDay(daysAgo(13)).toISOString(), to: endOfDay(now).toISOString() };
+    case 'MONTH': return { from: startOfDay(daysAgo(29)).toISOString(), to: endOfDay(now).toISOString() };
+    default: return {};
+  }
+}
+const lastActivity = (c: Customer): string | undefined => {
+  const dates = [c.lastSaleAt, c.lastPaymentAt, c.createdAt].filter(Boolean) as string[];
+  if (!dates.length) return undefined;
+  return dates.reduce((a, b) => (new Date(a) > new Date(b) ? a : b));
+};
+
 export default function CustomersPage() {
   const [filters, setFilters] = useState<{ search?: string; hasDue?: string }>({});
-  const { data, isLoading } = useCustomers(filters);
+  const [range, setRange] = useState<RangePreset>('ALL');
+  const { data, isLoading } = useCustomers({ ...filters, ...rangeFor(range) });
   const { data: settings } = useSettings();
   const create = useCreateCustomer();
   const [open, setOpen] = useState(false);
@@ -41,6 +66,10 @@ export default function CustomersPage() {
     ) },
     { key: 'phone', header: 'Phone', render: (c) => c.phone || '—' },
     { key: 'type', header: 'Type', render: (c) => c.type },
+    { key: 'lastActivity', header: 'Last activity', render: (c) => {
+      const d = lastActivity(c);
+      return d ? <span className="text-slate-600">{new Date(d).toLocaleDateString()}</span> : <span className="text-slate-300">—</span>;
+    } },
     { key: 'balance', header: 'Outstanding', align: 'right', render: (c) => {
       const outstanding = c.totalOutstandingMinor ?? c.currentBalanceMinor;
       return outstanding > 0 ? <span className="font-medium text-red-600">{formatPKR(outstanding)}</span>
@@ -68,6 +97,17 @@ export default function CustomersPage() {
           <input type="checkbox" checked={filters.hasDue === 'true'} onChange={(e) => setFilters((f) => ({ ...f, hasDue: e.target.checked ? 'true' : undefined }))} />
           Only those who owe
         </label>
+        <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1">
+          {RANGE_LABELS.map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setRange(key)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${range === key ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Card><CardBody className="p-0">

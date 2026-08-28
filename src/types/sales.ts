@@ -19,6 +19,7 @@ export interface Customer {
   totalOutstandingMinor?: number; // ledger + delivery (unified)
   lastSaleAt?: string | null;
   lastPaymentAt?: string | null;
+  createdAt?: string;
 }
 
 export interface SaleItem {

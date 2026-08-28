@@ -22,10 +22,11 @@ export default function DashboardPage() {
   const qtyValue = isLoading ? '…' : qtyUnits.length ? `${qtyUnits[0].qty} ${qtyUnits[0].unit}` : '0';
   const qtySub = qtyUnits.length > 1 ? qtyUnits.slice(1).map((u) => `${u.qty} ${u.unit}`).join(' · ') : 'Sold today';
 
-  // Remaining stock across all products, per unit (can't sum L + kg + pcs).
+  // Remaining stock across all products, per unit (can't sum L + kg + pcs), with its price.
   const stockUnits = data?.stockByUnit ?? [];
   const stockValue = isLoading ? '…' : stockUnits.length ? `${stockUnits[0].qty} ${stockUnits[0].unit}` : '0';
-  const stockSub = stockUnits.length > 1 ? stockUnits.slice(1).map((u) => `${u.qty} ${u.unit}`).join(' · ') : `${num(data?.trackedProducts)} products`;
+  const otherUnits = stockUnits.length > 1 ? ' · ' + stockUnits.slice(1).map((u) => `${u.qty} ${u.unit}`).join(' · ') : '';
+  const stockSub = isLoading ? '…' : `Worth ${money(data?.stockSellValueMinor)}${otherUnits}`;
 
   return (
     <div className="space-y-6">
@@ -41,8 +42,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Today's Sales value = today's sales + outstanding dues. */}
-        <StatCard label="Today's Sales" value={money((data?.sales.totalMinor ?? 0) + (data?.outstandingMinor ?? 0))} tone="green" sublabel={`${num(data?.sales.count)} sales + ${money(data?.outstandingMinor)} outstanding`} href="/dashboard/sales" />
+        {/* Today's Sales value = today's sales + TODAY's outstanding dues only (not previous). */}
+        <StatCard label="Today's Sales" value={money((data?.sales.totalMinor ?? 0) + (data?.todayOutstandingMinor ?? 0))} tone="green" sublabel={`${num(data?.sales.count)} sales + ${money(data?.todayOutstandingMinor)} outstanding today`} href="/dashboard/sales" />
         <StatCard label="Cash Sales" value={money(data?.sales.cashMinor)} tone="blue" sublabel="View sales" href="/dashboard/sales" />
         <StatCard label="Credit Sales" value={money(data?.sales.creditMinor)} tone="amber" sublabel="View sales" href="/dashboard/sales" />
         <StatCard label="Outstanding" value={money(data?.outstandingMinor)} tone="red" sublabel="Customers with dues" href="/dashboard/customers" />

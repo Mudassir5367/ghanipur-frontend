@@ -10,7 +10,45 @@ import { forgotPassword, verifyResetOtp, resetPassword } from '@/features/auth/a
 import { apiErrorMessage } from '@/lib/api';
 
 type Step = 'email' | 'otp' | 'password' | 'done';
-const RESEND_COOLDOWN = 60; // seconds — mirror of the server-side cooldown
+const OTP_LEN = 4;
+const RESEND_COOLDOWN = 120; // seconds — mirror of the server-side cooldown (2 min)
+
+/** Segmented OTP entry: OTP_LEN single-digit boxes with auto-advance, backspace and paste. */
+function OtpBoxes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const setAt = (i: number, d: string) => {
+    const arr = Array.from({ length: OTP_LEN }, (_, j) => value[j] ?? '');
+    arr[i] = d;
+    onChange(arr.join('').slice(0, OTP_LEN));
+  };
+  return (
+    <div className="flex justify-center gap-3">
+      {Array.from({ length: OTP_LEN }).map((_, i) => (
+        <input
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          inputMode="numeric"
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          maxLength={1}
+          value={value[i] ?? ''}
+          onChange={(e) => {
+            const d = e.target.value.replace(/\D/g, '').slice(-1);
+            setAt(i, d);
+            if (d && i < OTP_LEN - 1) refs.current[i + 1]?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !value[i] && i > 0) refs.current[i - 1]?.focus();
+          }}
+          onPaste={(e) => {
+            const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, OTP_LEN);
+            if (paste) { e.preventDefault(); onChange(paste); refs.current[Math.min(paste.length, OTP_LEN) - 1]?.focus(); }
+          }}
+          className="h-14 w-12 rounded-lg border border-slate-300 text-center text-2xl font-bold text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -103,8 +141,8 @@ export default function ForgotPasswordPage() {
             {step === 'done' && 'Password updated'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {step === 'email' && "We'll email a 6-digit verification code to your account."}
-            {step === 'otp' && <>Enter the 6-digit code sent to <span className="font-medium text-slate-700">{email}</span>.</>}
+            {step === 'email' && `We'll email a ${OTP_LEN}-digit verification code to your account.`}
+            {step === 'otp' && <>Enter the {OTP_LEN}-digit code sent to <span className="font-medium text-slate-700">{email}</span>.</>}
             {step === 'password' && 'Choose a new password for your account.'}
             {step === 'done' && 'You can now log in with your new password.'}
           </p>
@@ -127,13 +165,9 @@ export default function ForgotPasswordPage() {
 
         {step === 'otp' && (
           <form onSubmit={onVerify} className="space-y-4">
-            <Input
-              name="otp" label="Verification code" inputMode="numeric" placeholder="123456"
-              className="text-center tracking-[0.4em]" value={otp}
-              onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 6); setOtp(v); }}
-              required autoComplete="one-time-code"
-            />
-            <Button type="submit" className="w-full" loading={busy} disabled={otp.length !== 6}>Verify code</Button>
+            <label className="block text-center text-sm font-medium text-slate-700">Verification code</label>
+            <OtpBoxes value={otp} onChange={setOtp} />
+            <Button type="submit" className="w-full" loading={busy} disabled={otp.length !== OTP_LEN}>Verify code</Button>
             <div className="flex items-center justify-between text-sm">
               <button type="button" onClick={() => { setStep('email'); setOtp(''); setError(''); }} className="text-slate-500 hover:text-slate-800">← Change email</button>
               <button type="button" onClick={sendCode} disabled={cooldown > 0 || busy} className="font-medium text-brand-700 hover:underline disabled:text-slate-400 disabled:no-underline">

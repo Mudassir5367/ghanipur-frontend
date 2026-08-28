@@ -10,10 +10,12 @@ export interface DashboardReport {
   sales: SalesSplit;
   paymentsReceivedMinor: number;
   outstandingMinor: number;
+  todayOutstandingMinor: number;
   qtySold: number;
   qtyByUnit: UnitQty[];
   topProducts: ProductStat[];
   stockValueMinor: number;
+  stockSellValueMinor: number;
   stockByUnit: { unit: string; qty: number; products: number }[];
   trackedProducts: number;
   lowStockCount: number;

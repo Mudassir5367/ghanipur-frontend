@@ -3,7 +3,7 @@ import type { ApiSuccess, PageMeta } from '@/types/api';
 import type { Customer, Sale, SaleItem, Payment, LedgerEntry, LedgerSummary, LedgerPeriod } from '@/types/sales';
 
 // ---- Customers ----
-export interface CustomerFilters { status?: string; type?: string; hasDue?: string; search?: string; page?: number }
+export interface CustomerFilters { status?: string; type?: string; hasDue?: string; search?: string; from?: string; to?: string; page?: number }
 export interface CustomerPayload { name: string; phone?: string; address?: string; type?: string; creditLimit?: number; openingBalance?: number; notes?: string }
 
 export async function listCustomers(filters: CustomerFilters = {}): Promise<{ customers: Customer[]; meta: PageMeta }> {
