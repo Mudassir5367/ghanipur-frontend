@@ -61,7 +61,10 @@ api.interceptors.response.use(
 /** Normalize an axios error into a readable message. */
 export function apiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as ApiError | undefined;
+    const data = err.response?.data as (ApiError & { errors?: { path?: string; message?: string }[] }) | undefined;
+    // Surface the specific validation reason(s) instead of a generic "Validation failed".
+    const details = data?.errors?.map((e) => e?.message).filter(Boolean) as string[] | undefined;
+    if (details?.length) return details.join('. ');
     return data?.message ?? err.message;
   }
   return err instanceof Error ? err.message : 'Something went wrong';

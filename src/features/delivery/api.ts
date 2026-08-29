@@ -16,6 +16,7 @@ export interface DeliveryLine {
   quantity: number;
   unitSymbol: string;
   unitPriceMinor: number;
+  costPriceMinor?: number;
   lineTotalMinor: number;
   stockBefore?: number | null;
   stockAfter?: number | null;
@@ -60,7 +61,7 @@ export interface Delivery {
 
 export interface CreateDeliveryPayload {
   customerId?: string;
-  lines: { productId: string; quantity: number; unitPrice?: number }[];
+  lines: { productId: string; quantity: number; unitPrice?: number; costPrice?: number }[];
   discount?: number;
   deliveryCharge?: number;
   paymentType: PaymentType;

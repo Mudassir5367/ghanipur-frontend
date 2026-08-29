@@ -38,6 +38,9 @@ export function DeliveryPaymentPanel({ presetCustomerId }: { presetCustomerId?: 
   const totalPayableMinor = useMemo(() => payable.reduce((s, d) => s + d.remainingMinor, 0), [payable]);
   // Max payable = the whole customer's outstanding when "All", else the one delivery's.
   const maxMinor = isAll ? totalPayableMinor : (selected?.remainingMinor ?? 0);
+  // A payment can never exceed the outstanding balance (whole customer or one delivery).
+  const amountMinor = Math.round((Number(amount) || 0) * 100);
+  const exceeds = amountMinor > maxMinor;
 
   // Default to "All deliveries" when there are several; the single delivery otherwise.
   useEffect(() => {
@@ -49,6 +52,7 @@ export function DeliveryPaymentPanel({ presetCustomerId }: { presetCustomerId?: 
   const pay = async () => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
+    if (amountMinor > maxMinor) return; // never pay more than what's owed
     if (isAll) {
       // Spread the amount across the customer's deliveries, oldest first.
       let remainingMinor = Math.round(amt * 100);
@@ -114,8 +118,13 @@ export function DeliveryPaymentPanel({ presetCustomerId }: { presetCustomerId?: 
                   </div>
                 ) : null}
                 <Input label="Amount (Rs)" type="number" step="0.01" min="0" max={maxMinor / 100} value={amount} onChange={(e) => setAmount(e.target.value)} required hint={`Max ${formatPKR(maxMinor)}`} />
+                {exceeds && (
+                  <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                    Amount exceeds the outstanding balance of {formatPKR(maxMinor)}.
+                  </div>
+                )}
                 <Select label="Method" value={method} onChange={(e) => setMethod(e.target.value)} options={methods.map((m) => ({ value: m, label: m }))} />
-                <Button className="w-full" onClick={pay} loading={addPayment.isPending} disabled={(!isAll && !selected) || !amount}>Record payment</Button>
+                <Button className="w-full" onClick={pay} loading={addPayment.isPending} disabled={(!isAll && !selected) || !amount || exceeds}>Record payment</Button>
               </>
             )}
           </>

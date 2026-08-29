@@ -12,7 +12,7 @@ import { formatPKR } from '@/lib/utils';
 import { refSymbol, type Product } from '@/types/catalog';
 import type { PaymentType } from '@/features/delivery/api';
 
-interface Line { productId: string; name: string; unitPriceMinor: number; quantity: number; symbol: string }
+interface Line { productId: string; name: string; unitPriceMinor: number; costPriceMinor: number; quantity: number; symbol: string }
 
 export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: productData } = useProducts({});
@@ -39,6 +39,11 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
   const grandTotal = Math.max(0, subtotal + chargeMinor - discountMinor);
   const paid = paymentType === 'CASH' ? grandTotal : Math.min(grandTotal, Math.round((Number(paidAmount) || 0) * 100));
   const remaining = grandTotal - paid;
+  // Profit per delivery = Σ (selling/unit − cost/unit) × qty, reflected in the dashboard Profit card.
+  const totalProfitMinor = lines.reduce((s, l) => s + Math.round((l.unitPriceMinor - l.costPriceMinor) * l.quantity), 0);
+
+  const updateLine = (id: string, patch: Partial<Line>) =>
+    setLines((prev) => prev.map((l) => (l.productId === id ? { ...l, ...patch } : l)));
 
   const addLine = () => {
     const p: Product | undefined = productMap.get(pick);
@@ -47,7 +52,7 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
     setLines((prev) => {
       const found = prev.find((l) => l.productId === p._id);
       if (found) return prev.map((l) => (l.productId === p._id ? { ...l, quantity: l.quantity + q } : l));
-      return [...prev, { productId: p._id, name: p.name, unitPriceMinor: p.sellingPriceMinor, quantity: q, symbol: refSymbol(p.unitId) }];
+      return [...prev, { productId: p._id, name: p.name, unitPriceMinor: p.sellingPriceMinor, costPriceMinor: p.purchaseCostMinor ?? 0, quantity: q, symbol: refSymbol(p.unitId) }];
     });
     setPick(''); setQty('1');
   };
@@ -57,12 +62,15 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
     setPaymentType('CREDIT'); setPaidAmount(''); setAddress(''); setAssignedToName('');
   };
 
+  // Credit leaves a balance owed, so it must be tied to a customer who owes it.
+  const needsCustomer = paymentType === 'CREDIT' && !customerId;
+
   const submit = () => {
-    if (lines.length === 0) return;
+    if (lines.length === 0 || needsCustomer) return;
     create.mutate(
       {
         customerId: customerId || undefined,
-        lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPriceMinor / 100, costPrice: l.costPriceMinor / 100 })),
         discount: Number(discount) || undefined,
         deliveryCharge: Number(deliveryCharge) || undefined,
         paymentType,
@@ -91,16 +99,31 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         {lines.length > 0 && (
-          <div className="rounded-lg border border-slate-200 text-sm">
-            {lines.map((l) => (
-              <div key={l.productId} className="flex items-center justify-between border-b border-slate-100 px-3 py-2 last:border-0">
-                <span>{l.name} · {l.quantity} {l.symbol} × {formatPKR(l.unitPriceMinor)}</span>
-                <div className="flex items-center gap-3">
-                  <span className="font-medium">{formatPKR(Math.round(l.unitPriceMinor * l.quantity))}</span>
-                  <button type="button" onClick={() => setLines((p) => p.filter((x) => x.productId !== l.productId))} className="text-slate-400 hover:text-red-500">✕</button>
+          <div className="space-y-2 text-sm">
+            {lines.map((l) => {
+              const profit = Math.round((l.unitPriceMinor - l.costPriceMinor) * l.quantity);
+              return (
+                <div key={l.productId} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{l.name} · {l.quantity} {l.symbol}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="text-slate-500">Total {formatPKR(Math.round(l.unitPriceMinor * l.quantity))}</span>
+                      <button type="button" onClick={() => setLines((p) => p.filter((x) => x.productId !== l.productId))} className="text-slate-400 hover:text-red-500">✕</button>
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 items-end gap-2">
+                    <Input label="Selling / unit (Rs)" type="number" step="0.01" min="0" value={l.unitPriceMinor / 100}
+                      onChange={(e) => updateLine(l.productId, { unitPriceMinor: Math.round((Number(e.target.value) || 0) * 100) })} />
+                    <Input label="Cost / unit (Rs)" type="number" step="0.01" min="0" value={l.costPriceMinor / 100}
+                      onChange={(e) => updateLine(l.productId, { costPriceMinor: Math.round((Number(e.target.value) || 0) * 100) })} />
+                    <div className="pb-2">
+                      <div className="text-xs text-slate-500">Profit</div>
+                      <div className={`font-semibold ${profit < 0 ? 'text-red-600' : 'text-green-600'}`}>{formatPKR(profit)}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -115,6 +138,7 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
           <div className="flex justify-between"><span className="text-slate-500">Delivery charges</span><span>{formatPKR(chargeMinor)}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Discount</span><span>- {formatPKR(discountMinor)}</span></div>
           <div className="flex justify-between border-t border-slate-200 pt-1 text-base font-semibold"><span>Grand Total</span><span className="text-brand-700">{formatPKR(grandTotal)}</span></div>
+          <div className="flex justify-between pt-1"><span className="text-slate-500">Est. profit (selling − cost)</span><span className={totalProfitMinor < 0 ? 'font-medium text-red-600' : 'font-medium text-green-600'}>{formatPKR(totalProfitMinor)}</span></div>
         </div>
 
         {/* Payment */}
@@ -133,7 +157,13 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
         <Input label="Delivery address" value={address} onChange={(e) => setAddress(e.target.value)} />
         <Input label="Delivery person" value={assignedToName} onChange={(e) => setAssignedToName(e.target.value)} />
 
-        <Button className="w-full" size="lg" disabled={lines.length === 0} loading={create.isPending} onClick={submit}>
+        {needsCustomer && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Select a customer above for a credit delivery, or choose <span className="font-medium">Cash</span>.
+          </div>
+        )}
+
+        <Button className="w-full" size="lg" disabled={lines.length === 0 || needsCustomer} loading={create.isPending} onClick={submit}>
           Create Delivery — {formatPKR(grandTotal)}
         </Button>
       </div>

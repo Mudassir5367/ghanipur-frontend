@@ -21,9 +21,14 @@ export function QuickPayment({ presetCustomerId }: { presetCustomerId?: string }
   const customers = customerData?.customers ?? [];
   const selected = useMemo(() => customers.find((c) => c._id === customerId), [customers, customerId]);
   const methods = settings?.paymentMethods ?? ['CASH'];
+  // A payment can never exceed what the customer owes.
+  const outstandingMinor = selected ? Math.max(0, selected.currentBalanceMinor) : 0;
+  const amountMinor = Math.round((Number(amount) || 0) * 100);
+  const exceeds = !!selected && amountMinor > outstandingMinor;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (exceeds) return;
     record.mutate(
       { customerId, amount: Number(amount), method: method || methods[0], reference: reference || undefined },
       { onSuccess: () => { setAmount(''); setReference(''); } },
@@ -46,12 +51,19 @@ export function QuickPayment({ presetCustomerId }: { presetCustomerId?: string }
               Outstanding: <span className="font-semibold">{formatPKR(Math.max(0, selected.currentBalanceMinor))}</span>
             </div>
           )}
-          <Input label="Amount (Rs)" type="number" step="0.01" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+          <Input label="Amount (Rs)" type="number" step="0.01" min="0" max={selected ? outstandingMinor / 100 : undefined}
+            value={amount} onChange={(e) => setAmount(e.target.value)} required
+            hint={selected ? `Max ${formatPKR(outstandingMinor)}` : undefined} />
+          {exceeds && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              Amount exceeds the outstanding balance of {formatPKR(outstandingMinor)}.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Select label="Method" value={method} onChange={(e) => setMethod(e.target.value)} options={methods.map((m) => ({ value: m, label: m }))} />
             <Input label="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
           </div>
-          <Button type="submit" className="w-full" loading={record.isPending} disabled={!customerId || !amount}>Record payment</Button>
+          <Button type="submit" className="w-full" loading={record.isPending} disabled={!customerId || !amount || exceeds}>Record payment</Button>
         </form>
       </CardBody>
     </Card>
