@@ -1,26 +1,22 @@
-# Standalone deployment for the Ghanipur FRONTEND (Next.js).
+# Deployment stack for the Ghanipur FRONTEND (Next.js).
 #
-# The backend is deployed as its own compose stack from the ghanipur-backend
-# repo. Both stacks attach to the shared external network `ghanipur-net`, which
-# lets the Next server resolve the backend by its compose service name
-# (`backend`) and proxy /api/v1 + /uploads to it — so the browser only ever
-# talks to this origin and the auth cookie stays first-party.
+# The backend runs on a SEPARATE EC2 machine, so there is no shared Docker
+# network: this Next server proxies /api/v1 and /uploads to the backend's
+# address, set as BACKEND_ORIGIN in .env. The browser therefore only ever talks
+# to this origin, which keeps the refresh cookie first-party (no CORS, no
+# SameSite=None) — the backend is never contacted by the browser directly.
 #
-# Create the shared network once, before the first `up`:
-#   docker network create ghanipur-net
-#
-# The frontend starts fine before the backend exists; API calls just 502 until
-# the backend stack is up.
+# BACKEND_ORIGIN is baked into the image: Next evaluates next.config's
+# rewrites() during `next build`. Changing it needs `up -d --build`.
 
 services:
   frontend:
     build:
       context: .
       args:
-        # Baked into the build — see the Dockerfile for why these are ARGs.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        API_PROXY_TARGET: ${API_PROXY_TARGET:-http://backend:5000}
+        API_PROXY_TARGET: ${BACKEND_ORIGIN:?set BACKEND_ORIGIN in .env, e.g. http://10.0.1.20:5000}
     image: ghanipur-frontend:latest
     container_name: ghanipur-frontend
     restart: unless-stopped
@@ -28,20 +24,11 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
-      # SSR runs inside this container, so it reaches the backend by service
-      # name — not by the browser's public URL. Read at runtime.
-      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://backend:5000/api/v1}
+      # SSR fetches run inside this container and go straight to the backend,
+      # not through the browser's public URL. Read at runtime.
+      INTERNAL_API_URL: ${BACKEND_ORIGIN}/api/v1
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
-    networks:
-      - ghanipur-net
     logging:
       driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-networks:
-  ghanipur-net:
-    external: true
-    name: ghanipur-net
+      options: { max-size: "10m", max-file: "3" }

@@ -23,6 +23,7 @@ npm run dev               # http://localhost:3000
 | `NEXT_PUBLIC_APP_URL` | build | Public origin, used for SEO metadata, `sitemap.xml`, `robots.txt`. |
 | `API_PROXY_TARGET` | build | Backend the Next server proxies `/api/v1` + `/uploads` to. Baked in because Next evaluates `rewrites()` during `next build`. |
 | `INTERNAL_API_URL` | runtime | Backend base URL for SSR fetches from inside the container. |
+| `BACKEND_ORIGIN` | compose | Deployment shorthand that supplies both of the above. |
 | `FRONTEND_PORT` | compose | Host port published for the container's 3000. |
 
 Because three of these are baked into the build, **changing them requires
@@ -35,19 +36,29 @@ npm run build && npm start
 
 ## Deploy with Docker Compose
 
-The frontend and backend are separate repos and separate compose stacks. They
-share the external Docker network `ghanipur-net`, which is what lets the Next
-server resolve the backend by its service name (`backend`).
+The frontend and backend are separate repos deployed to **separate machines**.
+There is no shared Docker network across hosts, so this container reaches the
+backend by address — `BACKEND_ORIGIN` in `.env`:
+
+```
+browser ──▶ :3000 this container ──▶ BACKEND_ORIGIN (other machine, :5000)
+                   proxies /api/v1 + /uploads
+```
+
+Only this machine is public. The browser never contacts the backend directly,
+which is what keeps the auth cookie first-party.
 
 ```bash
-# once per machine
-docker network create ghanipur-net
-
 git clone https://github.com/Mudassir5367/ghanipur-frontend.git
 cd ghanipur-frontend
-cp .env.production.example .env      # set NEXT_PUBLIC_APP_URL to your public URL
+cp .env.production.example .env      # set NEXT_PUBLIC_APP_URL and BACKEND_ORIGIN
 docker compose up -d --build
 ```
+
+Use the backend's **private** IP in `BACKEND_ORIGIN` when both instances are in
+the same VPC — otherwise API traffic, including bearer tokens, crosses the
+public internet in plaintext. If they must talk over public IPs, restrict the
+backend's security group to this machine's IP and put TLS in front of it.
 
 Check it:
 ```bash
