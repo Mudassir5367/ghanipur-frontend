@@ -1,8 +1,23 @@
+# Reinstalled/rebuilt inside the image
 node_modules
 .next
 out
-.env.local
+build
+
+# Secrets — note plain `.env` is NOT matched by `.env.*`, so list it too.
+.env
 .env.*
 !.env.example
-*.log
+!.env.*.example
+
+# Not needed in the build context
 .git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+README.md
+.vscode
+.idea
+coverage
+*.log
