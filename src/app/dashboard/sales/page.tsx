@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge } from '@/components/ui/Badge';
@@ -9,7 +10,8 @@ import { formatPKR } from '@/lib/utils';
 import { customerName, type Sale } from '@/types/sales';
 
 export default function SalesPage() {
-  const { data, isLoading } = useSales({});
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useSales({ page });
 
   const columns: Column<Sale>[] = [
     {
@@ -50,7 +52,7 @@ export default function SalesPage() {
           <Card>
             <CardHeader><CardTitle>Recent sales</CardTitle></CardHeader>
             <CardBody className="p-0">
-              <DataTable columns={columns} data={data?.sales} isLoading={isLoading} rowKey={(s) => s._id} empty="No sales yet." />
+              <DataTable columns={columns} data={data?.sales} isLoading={isLoading} rowKey={(s) => s._id} empty="No sales yet." pagination={{ meta: data?.meta, onPageChange: setPage }} />
             </CardBody>
           </Card>
         </div>

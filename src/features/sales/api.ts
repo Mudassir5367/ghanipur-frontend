@@ -7,7 +7,7 @@ export interface CustomerFilters { status?: string; type?: string; hasDue?: stri
 export interface CustomerPayload { name: string; phone?: string; address?: string; type?: string; creditLimit?: number; openingBalance?: number; notes?: string }
 
 export async function listCustomers(filters: CustomerFilters = {}): Promise<{ customers: Customer[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Customer[]>>('/customers', { params: { limit: 20, ...filters } });
+  const { data } = await api.get<ApiSuccess<Customer[]>>('/customers', { params: { limit: 15, ...filters } });
   return { customers: data.data, meta: data.meta! };
 }
 export async function getCustomer(id: string): Promise<Customer> {
@@ -34,7 +34,7 @@ export interface CreateSalePayload { type: 'CASH' | 'CREDIT'; customerId?: strin
 export interface SaleFilters { type?: string; status?: string; customerId?: string; from?: string; to?: string; page?: number }
 
 export async function listSales(filters: SaleFilters = {}): Promise<{ sales: Sale[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Sale[]>>('/sales', { params: { limit: 20, ...filters } });
+  const { data } = await api.get<ApiSuccess<Sale[]>>('/sales', { params: { limit: 15, ...filters } });
   return { sales: data.data, meta: data.meta! };
 }
 export async function getSale(id: string): Promise<{ sale: Sale; items: SaleItem[] }> {
@@ -53,7 +53,7 @@ export async function reverseSale(id: string): Promise<Sale> {
 // ---- Payments ----
 export interface PaymentFilters { customerId?: string; from?: string; to?: string; page?: number }
 export async function listPayments(filters: PaymentFilters = {}): Promise<{ payments: Payment[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Payment[]>>('/payments', { params: { limit: 20, ...filters } });
+  const { data } = await api.get<ApiSuccess<Payment[]>>('/payments', { params: { limit: 15, ...filters } });
   return { payments: data.data, meta: data.meta! };
 }
 export async function recordPayment(payload: { customerId: string; amount: number; method?: string; reference?: string; note?: string }): Promise<{ balanceAfterMinor: number }> {

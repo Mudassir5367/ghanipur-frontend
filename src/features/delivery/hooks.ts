@@ -28,11 +28,26 @@ export function useCustomerDeliverySummary(customerId: string | null) {
   return useQuery({ queryKey: ['delivery-customer-summary', customerId], queryFn: () => delivery.getCustomerDeliverySummary(customerId!), enabled: !!customerId });
 }
 
+export function useDeliveryRoster() {
+  return useQuery({ queryKey: ['delivery-roster'], queryFn: delivery.getDeliveryRoster });
+}
+
+const invalidateRoster = (qc: ReturnType<typeof useQueryClient>) => qc.invalidateQueries({ queryKey: ['delivery-roster'] });
+
 export function useCreateDelivery() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: delivery.createDelivery,
-    onSuccess: (d) => { invalidate(qc); toast.success(`Delivery ${d.code} created`); },
+    onSuccess: (d) => { invalidate(qc); invalidateRoster(qc); toast.success(`Delivery ${d.code} created`); },
+    onError,
+  });
+}
+
+export function useUpdateDelivery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: delivery.CreateDeliveryPayload }) => delivery.updateDelivery(id, payload),
+    onSuccess: (d) => { invalidate(qc); invalidateRoster(qc); toast.success(`Delivery ${d.code} updated`); },
     onError,
   });
 }

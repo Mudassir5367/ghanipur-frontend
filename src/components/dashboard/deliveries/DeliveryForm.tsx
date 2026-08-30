@@ -1,23 +1,32 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { useProducts } from '@/features/catalog/hooks';
 import { useCustomers } from '@/features/sales/hooks';
-import { useCreateDelivery } from '@/features/delivery/hooks';
+import { useCreateDelivery, useUpdateDelivery } from '@/features/delivery/hooks';
 import { formatPKR } from '@/lib/utils';
 import { refSymbol, type Product } from '@/types/catalog';
-import type { PaymentType } from '@/features/delivery/api';
+import type { PaymentType, Delivery } from '@/features/delivery/api';
 
 interface Line { productId: string; name: string; unitPriceMinor: number; costPriceMinor: number; quantity: number; symbol: string }
 
-export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function DeliveryForm({ open, onClose, presetCustomerId, deliverNow, editDelivery }: {
+  open: boolean;
+  onClose: () => void;
+  presetCustomerId?: string;
+  deliverNow?: boolean;
+  editDelivery?: Delivery | null;
+}) {
   const { data: productData } = useProducts({});
   const { data: customerData } = useCustomers({});
   const create = useCreateDelivery();
+  const update = useUpdateDelivery();
+  const isEdit = !!editDelivery;
+  const lockCustomer = !!presetCustomerId || isEdit;
 
   const [customerId, setCustomerId] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
@@ -62,30 +71,52 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
     setPaymentType('CREDIT'); setPaidAmount(''); setAddress(''); setAssignedToName('');
   };
 
+  // On open: prefill for edit, preset the customer for the roster flow, or start blank.
+  useEffect(() => {
+    if (!open) return;
+    if (editDelivery) {
+      const cid = typeof editDelivery.customerId === 'string' ? editDelivery.customerId : (editDelivery.customerId?._id ?? '');
+      setCustomerId(cid);
+      setLines(editDelivery.lines.map((l) => ({ productId: l.productId, name: l.name, unitPriceMinor: l.unitPriceMinor, costPriceMinor: l.costPriceMinor ?? 0, quantity: l.quantity, symbol: l.unitSymbol })));
+      setDiscount(editDelivery.discountMinor ? String(editDelivery.discountMinor / 100) : '');
+      setDeliveryCharge(editDelivery.deliveryChargeMinor ? String(editDelivery.deliveryChargeMinor / 100) : '');
+      setPaymentType(editDelivery.paymentType);
+      setPaidAmount(editDelivery.paidMinor ? String(editDelivery.paidMinor / 100) : '');
+      setAddress(editDelivery.address ?? '');
+      setAssignedToName(editDelivery.assignedToName ?? '');
+    } else {
+      reset();
+      if (presetCustomerId) setCustomerId(presetCustomerId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editDelivery, presetCustomerId]);
+
   // Credit leaves a balance owed, so it must be tied to a customer who owes it.
   const needsCustomer = paymentType === 'CREDIT' && !customerId;
 
   const submit = () => {
     if (lines.length === 0 || needsCustomer) return;
-    create.mutate(
-      {
-        customerId: customerId || undefined,
-        lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPriceMinor / 100, costPrice: l.costPriceMinor / 100 })),
-        discount: Number(discount) || undefined,
-        deliveryCharge: Number(deliveryCharge) || undefined,
-        paymentType,
-        paidAmount: paymentType === 'CREDIT' && paidAmount ? Number(paidAmount) : undefined,
-        address: address || undefined,
-        assignedToName: assignedToName || undefined,
-      },
-      { onSuccess: () => { reset(); onClose(); } },
-    );
+    const payload = {
+      customerId: customerId || undefined,
+      lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPriceMinor / 100, costPrice: l.costPriceMinor / 100 })),
+      discount: Number(discount) || undefined,
+      deliveryCharge: Number(deliveryCharge) || undefined,
+      paymentType,
+      paidAmount: paymentType === 'CREDIT' && paidAmount ? Number(paidAmount) : undefined,
+      address: address || undefined,
+      assignedToName: assignedToName || undefined,
+      deliverNow: deliverNow || undefined,
+    };
+    const done = { onSuccess: () => { reset(); onClose(); } };
+    if (editDelivery) update.mutate({ id: editDelivery._id, payload }, done);
+    else create.mutate(payload, done);
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="New Delivery">
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Delivery' : 'New Delivery'}>
       <div className="space-y-4">
-        <Select label="Customer (optional)" placeholder="Walk-in / none" value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+        <Select label={lockCustomer ? 'Customer' : 'Customer (optional)'} placeholder="Walk-in / none" value={customerId} onChange={(e) => setCustomerId(e.target.value)}
+          disabled={lockCustomer}
           options={(customerData?.customers ?? []).map((c) => ({ value: c._id, label: c.name }))} />
 
         {/* Add item */}
@@ -163,8 +194,8 @@ export function DeliveryForm({ open, onClose }: { open: boolean; onClose: () => 
           </div>
         )}
 
-        <Button className="w-full" size="lg" disabled={lines.length === 0 || needsCustomer} loading={create.isPending} onClick={submit}>
-          Create Delivery — {formatPKR(grandTotal)}
+        <Button className="w-full" size="lg" disabled={lines.length === 0 || needsCustomer} loading={create.isPending || update.isPending} onClick={submit}>
+          {isEdit ? 'Save Changes' : deliverNow ? 'Create & Mark Delivered' : 'Create Delivery'} — {formatPKR(grandTotal)}
         </Button>
       </div>
     </Modal>

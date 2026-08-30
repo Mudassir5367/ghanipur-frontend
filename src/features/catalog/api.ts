@@ -67,7 +67,7 @@ export async function uploadImage(file: File): Promise<string> {
 }
 
 export async function listProducts(filters: ProductFilters = {}): Promise<{ products: Product[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Product[]>>('/products', { params: { limit: 20, ...filters } });
+  const { data } = await api.get<ApiSuccess<Product[]>>('/products', { params: { limit: 15, ...filters } });
   return { products: data.data, meta: data.meta! };
 }
 export async function getProduct(id: string): Promise<Product> {

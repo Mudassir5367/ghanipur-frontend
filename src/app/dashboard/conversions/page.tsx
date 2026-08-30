@@ -14,7 +14,8 @@ import { refSymbol } from '@/types/catalog';
 
 export default function ConversionsPage() {
   const { data: productData } = useProducts({});
-  const { data: history, isLoading } = useConversions();
+  const [page, setPage] = useState(1);
+  const { data: history, isLoading } = useConversions(page);
   const convert = useCreateConversion();
 
   const products = useMemo(() => productData?.products ?? [], [productData]);
@@ -108,7 +109,7 @@ export default function ConversionsPage() {
           <Card>
             <CardHeader><CardTitle>Conversion history</CardTitle></CardHeader>
             <CardBody className="p-0">
-              <DataTable columns={columns} data={history?.conversions} isLoading={isLoading} rowKey={(c) => c._id} empty="No conversions yet." />
+              <DataTable columns={columns} data={history?.conversions} isLoading={isLoading} rowKey={(c) => c._id} empty="No conversions yet." pagination={{ meta: history?.meta, onPageChange: setPage }} />
             </CardBody>
           </Card>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -40,7 +40,9 @@ const lastActivity = (c: Customer): string | undefined => {
 export default function CustomersPage() {
   const [filters, setFilters] = useState<{ search?: string; hasDue?: string }>({});
   const [range, setRange] = useState<RangePreset>('ALL');
-  const { data, isLoading } = useCustomers({ ...filters, ...rangeFor(range) });
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [filters, range]); // any filter change → back to page 1
+  const { data, isLoading } = useCustomers({ ...filters, ...rangeFor(range), page });
   const { data: settings } = useSettings();
   const create = useCreateCustomer();
   const [open, setOpen] = useState(false);
@@ -111,7 +113,7 @@ export default function CustomersPage() {
       </div>
 
       <Card><CardBody className="p-0">
-        <DataTable columns={columns} data={data?.customers} isLoading={isLoading} rowKey={(c) => c._id} empty="No customers yet." />
+        <DataTable columns={columns} data={data?.customers} isLoading={isLoading} rowKey={(c) => c._id} empty="No customers yet." pagination={{ meta: data?.meta, onPageChange: setPage }} />
       </CardBody></Card>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Add customer">

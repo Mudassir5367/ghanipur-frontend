@@ -62,6 +62,7 @@ export interface Delivery {
 export interface CreateDeliveryPayload {
   customerId?: string;
   lines: { productId: string; quantity: number; unitPrice?: number; costPrice?: number }[];
+  deliverNow?: boolean;
   discount?: number;
   deliveryCharge?: number;
   paymentType: PaymentType;
@@ -82,7 +83,7 @@ export interface DeliveryFilters {
 }
 
 export async function listDeliveries(filters: DeliveryFilters = {}): Promise<{ deliveries: Delivery[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Delivery[]>>('/deliveries', { params: { limit: 20, ...filters } });
+  const { data } = await api.get<ApiSuccess<Delivery[]>>('/deliveries', { params: { limit: 15, ...filters } });
   return { deliveries: data.data, meta: data.meta! };
 }
 export async function getDelivery(id: string): Promise<Delivery> {
@@ -92,6 +93,26 @@ export async function getDelivery(id: string): Promise<Delivery> {
 export async function createDelivery(payload: CreateDeliveryPayload): Promise<Delivery> {
   const { data } = await api.post<ApiSuccess<{ delivery: Delivery }>>('/deliveries', payload);
   return data.data.delivery;
+}
+export async function updateDelivery(id: string, payload: CreateDeliveryPayload): Promise<Delivery> {
+  const { data } = await api.patch<ApiSuccess<{ delivery: Delivery }>>(`/deliveries/${id}`, payload);
+  return data.data.delivery;
+}
+
+export interface RosterRow {
+  customerId: string;
+  name: string;
+  phone: string;
+  address: string;
+  outstandingMinor: number; // total owed (ledger + all delivery dues) — matches Customers page
+  status: 'PENDING' | 'DELIVERED';
+  deliveryId: string | null;
+  deliveryCode: string | null;
+  todayTotalMinor: number; // sum of today's deliveries
+}
+export async function getDeliveryRoster(): Promise<{ date: string; rows: RosterRow[] }> {
+  const { data } = await api.get<ApiSuccess<{ date: string; rows: RosterRow[] }>>('/deliveries/roster');
+  return data.data;
 }
 export async function setDeliveryStatus(id: string, status: DeliveryStatus): Promise<Delivery> {
   const { data } = await api.patch<ApiSuccess<{ delivery: Delivery }>>(`/deliveries/${id}/status`, { status });

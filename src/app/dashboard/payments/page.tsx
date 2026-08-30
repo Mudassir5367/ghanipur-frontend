@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -35,7 +35,9 @@ function rangeFor(preset: RangePreset): { from?: string; to?: string } {
 export default function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [range, setRange] = useState<RangePreset>('ALL');
-  const { data, isLoading } = useDeliveries({ ...(search ? { search } : {}), ...rangeFor(range) });
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, range]);
+  const { data, isLoading } = useDeliveries({ ...(search ? { search } : {}), ...rangeFor(range), page });
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const columns: Column<Delivery>[] = [
@@ -78,7 +80,7 @@ export default function PaymentsPage() {
                 </div>
               </div>
               <div className="-mx-5">
-                <DataTable columns={columns} data={data?.deliveries} isLoading={isLoading} rowKey={(d) => d._id} onRowClick={(d) => setDetailId(d._id)} empty="No deliveries yet." />
+                <DataTable columns={columns} data={data?.deliveries} isLoading={isLoading} rowKey={(d) => d._id} onRowClick={(d) => setDetailId(d._id)} empty="No deliveries yet." pagination={{ meta: data?.meta, onPageChange: setPage }} />
               </div>
             </CardBody>
           </Card>

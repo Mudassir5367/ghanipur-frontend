@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,7 +17,9 @@ import { refName, refSymbol, type Product } from '@/types/catalog';
 export default function ProductsPage() {
   const { data: categories } = useCategories();
   const [filters, setFilters] = useState<{ categoryId?: string; lowStock?: string; search?: string }>({});
-  const { data, isLoading } = useProducts(filters);
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [filters]);
+  const { data, isLoading } = useProducts({ ...filters, page });
   const del = useDeleteProduct();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -80,7 +82,7 @@ export default function ProductsPage() {
       </div>
 
       <Card><CardBody className="p-0">
-        <DataTable columns={columns} data={data?.products} isLoading={isLoading} rowKey={(p) => p._id} empty="No products yet. Add your first product." />
+        <DataTable columns={columns} data={data?.products} isLoading={isLoading} rowKey={(p) => p._id} empty="No products yet. Add your first product." pagination={{ meta: data?.meta, onPageChange: setPage }} />
       </CardBody></Card>
 
       <ProductForm open={formOpen} onClose={() => setFormOpen(false)} product={editing} />

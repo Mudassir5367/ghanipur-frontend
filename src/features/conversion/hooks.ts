@@ -5,8 +5,8 @@ import * as conversion from './api';
 import { apiErrorMessage } from '@/lib/api';
 import { toast } from '@/components/ui/toast';
 
-export function useConversions() {
-  return useQuery({ queryKey: ['conversions'], queryFn: conversion.listConversions });
+export function useConversions(page = 1) {
+  return useQuery({ queryKey: ['conversions', page], queryFn: () => conversion.listConversions(page) });
 }
 
 export function useCreateConversion() {

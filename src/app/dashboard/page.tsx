@@ -48,7 +48,7 @@ export default function DashboardPage() {
         <StatCard label="Credit Sales" value={money(data?.sales.creditMinor)} tone="amber" sublabel="View sales" href="/dashboard/sales" />
         <StatCard label="Outstanding" value={money(data?.outstandingMinor)} tone="red" sublabel="Customers with dues" href="/dashboard/customers" />
         <ProfitCard />
-        <StatCard label="Payments Received" value={money(data?.paymentsReceivedMinor)} tone="green" sublabel="Cash sales + collections" href="/dashboard/payments" />
+        <StatCard label="Payments Received" value={money((data?.sales.cashMinor ?? 0) + (data?.sales.creditMinor ?? 0))} tone="green" sublabel="Cash + credit sales" href="/dashboard/payments" />
         <StatCard label="Quantity Sold" value={qtyValue} sublabel={qtySub} href="/dashboard/reports" />
         <StatCard label="Remaining Stock" value={stockValue} sublabel={stockSub} tone="blue" href="/dashboard/inventory" />
         <StatCard label="Deliveries" value={num(data?.deliveries)} sublabel="Today" href="/dashboard/deliveries" />

@@ -32,8 +32,8 @@ export function previewConversion(quantity: number, sourceUnitPriceMinor: number
   return { convertedQuantity, convertedUnitPriceMinor, totalValueMinor };
 }
 
-export async function listConversions(): Promise<{ conversions: Conversion[]; meta: PageMeta }> {
-  const { data } = await api.get<ApiSuccess<Conversion[]>>('/conversions', { params: { limit: 50 } });
+export async function listConversions(page = 1): Promise<{ conversions: Conversion[]; meta: PageMeta }> {
+  const { data } = await api.get<ApiSuccess<Conversion[]>>('/conversions', { params: { limit: 15, page } });
   return { conversions: data.data, meta: data.meta! };
 }
 
