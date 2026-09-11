@@ -1,0 +1,37 @@
+# Public entrypoint for the Ghanipur frontend.
+#
+# Caddy terminates TLS with a free Let's Encrypt certificate that it obtains and
+# renews on its own, then proxies to the Next server over the compose network.
+# Certificates live in the caddy_data volume — keep it, or every redeploy
+# re-issues and runs into Let's Encrypt's rate limits.
+#
+# Before the first start, issuance needs:
+#   - A records for SITE_DOMAIN and www.SITE_DOMAIN pointing at this machine
+#   - inbound 80 and 443 open in its security group (80 answers HTTP-01)
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	# Set only where the response has none; the API already sends HSTS via helmet.
+	header ?Strict-Transport-Security "max-age=31536000"
+	reverse_proxy frontend:3000
+}
+
+# One canonical origin. The refresh cookie is host-only, so a session started on
+# www would not exist on the apex.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Plain http for either name goes straight to the canonical https origin, in one
+# hop rather than via https://www first.
+http://{$SITE_DOMAIN}, http://www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Anything else on port 80 — the bare IP, or a hostname this machine does not
+# serve — gets the connection closed instead of the app. Over https there is
+# nothing to match either: no certificate exists for an IP, so the handshake
+# fails before any request is made.
+:80 {
+	abort
+}

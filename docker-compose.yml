@@ -1,5 +1,12 @@
 # Deployment stack for the Ghanipur FRONTEND (Next.js).
 #
+# Caddy is the only service published on this machine. It serves
+# https://SITE_DOMAIN with a free Let's Encrypt certificate it obtains and
+# renews itself, redirects http and www to that origin, and proxies to the Next
+# server over the compose network (see Caddyfile). Next is deliberately not
+# published, so the app has one public entrypoint and it is https — nothing
+# answers on <ip>:3000.
+#
 # The backend runs on a SEPARATE EC2 machine, so there is no shared Docker
 # network: this Next server proxies /api/v1 and /uploads to the backend's
 # address, set as BACKEND_ORIGIN in .env. The browser therefore only ever talks
@@ -27,8 +34,35 @@ services:
       # SSR fetches run inside this container and go straight to the backend,
       # not through the browser's public URL. Read at runtime.
       INTERNAL_API_URL: ${BACKEND_ORIGIN}/api/v1
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+    # Reachable by caddy over the compose network only.
+    expose:
+      - "3000"
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: ghanipur-caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-ghanipur.pk}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Issued certificates and the ACME account. Losing this means re-issuing
+      # on every deploy, which runs into Let's Encrypt's rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  caddy_data:
+  caddy_config:
