@@ -4,7 +4,10 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# Clear npm's cache in the same layer, or it ships a few hundred MB of tarballs
+# that nothing uses — on the ~6.7GB root volume this runs on, that decides
+# whether the build fits at all.
+RUN npm ci && npm cache clean --force
 
 # ---- Build stage ----
 FROM node:20-alpine AS build
