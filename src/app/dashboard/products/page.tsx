@@ -41,7 +41,9 @@ export default function ProductsPage() {
       </div>
     ) },
     { key: 'category', header: 'Category', render: (p) => refName(p.categoryId) || '—' },
-    { key: 'price', header: 'Price', align: 'right', render: (p) => formatPKR(p.sellingPriceMinor) },
+    { key: 'supplier', header: 'Supplier', render: (p) => p.supplier ? <span className="text-slate-600">{p.supplier}</span> : <span className="text-slate-300">—</span> },
+    { key: 'price', header: 'Sale price', align: 'right', render: (p) => formatPKR(p.sellingPriceMinor) },
+    { key: 'avgCost', header: 'Avg cost', align: 'right', render: (p) => <span className="text-slate-600">{formatPKR(p.avgCostMinor ?? p.purchaseCostMinor)}</span> },
     { key: 'stock', header: 'Stock', align: 'right', render: (p) => (
       <span className="inline-flex items-center gap-2">
         {p.trackInventory ? `${p.currentStock} ${refSymbol(p.unitId)}` : '—'}

@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/toast';
-import { useCategories, useUnits, useCreateProduct, useUpdateProduct, useCreateCategory } from '@/features/catalog/hooks';
+import { useCategories, useUnits, useCreateProduct, useUpdateProduct, useCreateCategory, useProduct, useSuppliers } from '@/features/catalog/hooks';
+import { formatPKR } from '@/lib/utils';
 import { suggestSku, uploadImage } from '@/features/catalog/api';
 import { apiErrorMessage } from '@/lib/api';
 import type { Product } from '@/types/catalog';
@@ -17,11 +18,12 @@ interface Props {
   product?: Product | null; // present => edit mode
 }
 
-const empty = { name: '', categoryId: '', unitId: '', sellingPrice: '', purchaseCost: '', minStock: '', openingStock: '', sku: '', isAvailable: true };
+const empty = { name: '', categoryId: '', unitId: '', supplier: '', sellingPrice: '', purchaseCost: '', minStock: '', openingStock: '', sku: '', isAvailable: true };
 
 export function ProductForm({ open, onClose, product }: Props) {
   const { data: categories } = useCategories();
   const { data: units } = useUnits();
+  const { data: suppliers } = useSuppliers();
   const create = useCreateProduct();
   const update = useUpdateProduct();
   const createCategory = useCreateCategory();
@@ -32,6 +34,9 @@ export function ProductForm({ open, onClose, product }: Props) {
   const [newCategory, setNewCategory] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
   const isEdit = !!product;
+  // Opening stock lives in the stock ledger, not on the list row — fetch it for edit.
+  const { data: detail, isLoading: detailLoading } = useProduct(isEdit && open ? product!._id : null);
+  const [loadedOpening, setLoadedOpening] = useState<number | null>(null);
 
   useEffect(() => {
     if (product) {
@@ -39,6 +44,7 @@ export function ProductForm({ open, onClose, product }: Props) {
         name: product.name,
         categoryId: typeof product.categoryId === 'object' ? product.categoryId._id : product.categoryId,
         unitId: typeof product.unitId === 'object' ? product.unitId._id : product.unitId,
+        supplier: product.supplier ?? '',
         sellingPrice: String(product.sellingPriceMinor / 100),
         purchaseCost: String(product.purchaseCostMinor / 100),
         minStock: String(product.minStock),
@@ -53,7 +59,15 @@ export function ProductForm({ open, onClose, product }: Props) {
     }
     setAddingCategory(false);
     setNewCategory('');
+    setLoadedOpening(null);
   }, [product, open]);
+
+  // Prefill opening stock once the ledger value arrives (only for the product being edited).
+  useEffect(() => {
+    if (!open || !product || !detail || detail._id !== product._id || detail.openingStock === undefined) return;
+    setLoadedOpening(detail.openingStock);
+    setForm((f) => ({ ...f, openingStock: String(detail.openingStock) }));
+  }, [detail, product, open]); // `open` too: reopening with a cached detail must re-prefill after the reset above
 
   const set = (k: keyof typeof empty) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -93,20 +107,40 @@ export function ProductForm({ open, onClose, product }: Props) {
     });
   };
 
+  // Opening stock can't exceed the stock actually available: none yet for a new
+  // product, the current stock when editing. Only checked when the value is set or
+  // changed, so products sold down since can still have other details edited.
+  const openingNum = form.openingStock.trim() === '' ? null : Number(form.openingStock);
+  const availableStock = isEdit ? (detail?.currentStock ?? product?.currentStock ?? 0) : 0;
+  const openingBeingSet = isEdit
+    ? loadedOpening !== null && openingNum !== null && openingNum !== loadedOpening
+    : openingNum !== null && openingNum > 0;
+  const openingError = openingBeingSet && openingNum! > availableStock
+    ? 'This much stock is not available. Please add stock first.'
+    : undefined;
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (openingError) return;
     const base = {
       name: form.name,
       categoryId: form.categoryId,
       unitId: form.unitId,
       sellingPrice: Number(form.sellingPrice),
       purchaseCost: Number(form.purchaseCost),
+      supplier: form.supplier.trim(),
       minStock: form.minStock ? Number(form.minStock) : undefined,
       isAvailable: form.isAvailable,
       sku: form.sku || undefined,
       images: imageUrl ? [imageUrl] : undefined,
     };
-    if (isEdit) update.mutate({ id: product!._id, payload: base }, { onSuccess: onClose });
+    if (isEdit) {
+      // Send opening stock only when it actually changed — the server turns the
+      // difference into a ledger correction.
+      const nextOpening = form.openingStock.trim() === '' ? null : Number(form.openingStock);
+      const openingChanged = loadedOpening !== null && nextOpening !== null && nextOpening !== loadedOpening;
+      update.mutate({ id: product!._id, payload: { ...base, ...(openingChanged ? { openingStock: nextOpening } : {}) } }, { onSuccess: onClose });
+    }
     else create.mutate({ ...base, openingStock: form.openingStock ? Number(form.openingStock) : undefined }, { onSuccess: onClose });
   };
 
@@ -168,10 +202,19 @@ export function ProductForm({ open, onClose, product }: Props) {
           </div>
         </div>
 
+        <Input label="Supplier / Vendor" value={form.supplier} onChange={set('supplier')} list="product-suppliers"
+          placeholder="Who you buy it from" hint={!isEdit && form.openingStock ? 'Opening stock is recorded as bought from this supplier' : undefined} />
+        <datalist id="product-suppliers">{(suppliers ?? []).map((s) => <option key={s} value={s} />)}</datalist>
+
         <div className="grid grid-cols-2 gap-4">
           <Input label="Cost price (Rs)" type="number" step="0.01" min="0" value={form.purchaseCost} onChange={set('purchaseCost')} required />
-          <Input label="Selling price (Rs)" type="number" step="0.01" min="0" value={form.sellingPrice} onChange={set('sellingPrice')} required />
+          <Input label="Sale price (Rs)" type="number" step="0.01" min="0" value={form.sellingPrice} onChange={set('sellingPrice')} required />
         </div>
+        {isEdit && detail?.avgCostMinor !== undefined && (
+          <p className="-mt-2 text-xs text-slate-500">
+            Average cost across stock purchases: <span className="font-medium text-slate-700">{formatPKR(detail.avgCostMinor)}</span> — sales are costed at this.
+          </p>
+        )}
         {/* Profit shown only when both prices are filled. */}
         {unitProfit !== null && (
           <div className={`flex items-center justify-between rounded-lg px-4 py-2.5 text-sm ${unitProfit < 0 ? 'bg-red-50' : 'bg-brand-50'}`}>
@@ -183,7 +226,18 @@ export function ProductForm({ open, onClose, product }: Props) {
         )}
         <div className="grid grid-cols-2 gap-4">
           <Input label="Min stock (alert)" type="number" min="0" value={form.minStock} onChange={set('minStock')} />
-          {!isEdit && <Input label="Opening stock" type="number" min="0" value={form.openingStock} onChange={set('openingStock')} hint="Optional" />}
+          {!isEdit && <Input label="Opening stock" type="number" min="0" value={form.openingStock} onChange={set('openingStock')} hint="Optional" error={openingError} />}
+          {isEdit && product!.trackInventory && (
+            <Input label="Opening stock" type="number" step="any" min="0"
+              value={detailLoading && loadedOpening === null ? '' : form.openingStock}
+              placeholder={detailLoading ? 'Loading…' : '0'}
+              disabled={loadedOpening === null}
+              onChange={set('openingStock')}
+              error={openingError}
+              hint={loadedOpening !== null && form.openingStock.trim() !== '' && Number(form.openingStock) !== loadedOpening
+                ? `Current stock will change by ${Number(form.openingStock) - loadedOpening > 0 ? '+' : ''}${Number(form.openingStock) - loadedOpening}`
+                : 'Changing it adjusts current stock by the difference'} />
+          )}
         </div>
 
         <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -191,7 +245,7 @@ export function ProductForm({ open, onClose, product }: Props) {
           Available for sale
         </label>
 
-        <Button type="submit" className="w-full" loading={pending} disabled={uploading}>{isEdit ? 'Save changes' : 'Create product'}</Button>
+        <Button type="submit" className="w-full" loading={pending} disabled={uploading || !!openingError}>{isEdit ? 'Save changes' : 'Create product'}</Button>
       </form>
     </Modal>
   );

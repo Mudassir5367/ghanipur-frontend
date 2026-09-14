@@ -18,6 +18,9 @@ export function useDailyMilk(date?: string) {
 export function usePlatformOverview() {
   return useQuery({ queryKey: ['platform-overview'], queryFn: reports.getPlatformOverview });
 }
+export function useNetProfit(from?: string, to?: string) {
+  return useQuery({ queryKey: ['net-profit', from, to], queryFn: () => reports.getNetProfit(from, to) });
+}
 export function useProfitLoss() {
   return useQuery({ queryKey: ['profit-loss'], queryFn: reports.getProfitLoss });
 }

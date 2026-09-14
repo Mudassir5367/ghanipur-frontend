@@ -5,12 +5,12 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useCustomers, useRecordPayment } from '@/features/sales/hooks';
+import { useAllCustomers, useRecordPayment } from '@/features/sales/hooks';
 import { useSettings } from '@/features/shop/hooks';
 import { formatPKR } from '@/lib/utils';
 
 export function QuickPayment({ presetCustomerId }: { presetCustomerId?: string }) {
-  const { data: customerData } = useCustomers({});
+  const { data: customerData } = useAllCustomers(); // every customer, not one page
   const { data: settings } = useSettings();
   const record = useRecordPayment();
   const [customerId, setCustomerId] = useState(presetCustomerId ?? '');

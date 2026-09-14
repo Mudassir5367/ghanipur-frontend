@@ -24,6 +24,7 @@ export interface Customer {
 
 export interface SaleItem {
   _id: string;
+  productId: string;
   name: string;
   quantity: number;
   unitPriceMinor: number;
@@ -44,6 +45,7 @@ export interface Sale {
   paymentMethod?: string | null;
   note?: string;
   soldAt: string;
+  editedAt?: string | null; // set once a confirmed sale has been corrected
   items?: SaleItem[]; // product name + selling price per line (from the list endpoint)
 }
 

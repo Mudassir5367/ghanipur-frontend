@@ -5,8 +5,8 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useProducts } from '@/features/catalog/hooks';
-import { useCustomers, useCreateSale } from '@/features/sales/hooks';
+import { useAllProducts } from '@/features/catalog/hooks';
+import { useAllCustomers, useCreateSale } from '@/features/sales/hooks';
 import { formatPKR } from '@/lib/utils';
 import { refSymbol, type Product } from '@/types/catalog';
 
@@ -17,8 +17,8 @@ const lineId = (l: Pick<Line, 'productId' | 'byAmount'>) => `${l.productId}:${l.
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function QuickSale() {
-  const { data: productData } = useProducts({});
-  const { data: customerData } = useCustomers({});
+  const { data: productData } = useAllProducts(); // every product, not one page
+  const { data: customerData } = useAllCustomers(); // every customer, not one page
   const createSale = useCreateSale();
 
   const [type, setType] = useState<'CASH' | 'CREDIT'>('CASH');
@@ -29,7 +29,7 @@ export function QuickSale() {
   const [entryMode, setEntryMode] = useState<EntryMode>('QTY');
   const [val, setVal] = useState('1');
 
-  const products = useMemo(() => productData?.products ?? [], [productData]);
+  const products = useMemo(() => productData ?? [], [productData]);
   const productMap = useMemo(() => new Map(products.map((p) => [p._id, p])), [products]);
   const total = lines.reduce((s, l) => s + l.lineTotalMinor, 0);
 
@@ -71,6 +71,13 @@ export function QuickSale() {
   };
 
   const removeLine = (id: string) => setLines((prev) => prev.filter((l) => lineId(l) !== id));
+
+  // Enter adds the line — exactly like clicking Add, and only when Add is enabled.
+  const addOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || !pick || !val) return;
+    e.preventDefault();
+    addLine();
+  };
 
   // Pre-select a product in the dropdown when arriving from a storefront card
   // (/dashboard/sales?add=<id>). Waits for the catalogue to load, selects it once,
@@ -157,7 +164,7 @@ export function QuickSale() {
         {/* Add item row */}
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Select label="Product" placeholder="Select product…" value={pick} onChange={(e) => setPick(e.target.value)}
+            <Select label="Product" placeholder="Select product…" value={pick} onChange={(e) => setPick(e.target.value)} onKeyDown={addOnEnter}
               options={products.map((p) => ({ value: p._id, label: `${p.name} — ${formatPKR(p.sellingPriceMinor)}${p.trackInventory ? ` (${p.currentStock} ${refSymbol(p.unitId)})` : ''}` }))} />
           </div>
           {/* Text + inputMode=decimal (not type=number): a number input reports an
@@ -173,6 +180,7 @@ export function QuickSale() {
               const v = e.target.value;
               if (v === '' || /^\d*\.?\d*$/.test(v)) setVal(v); // digits + one optional dot
             }}
+            onKeyDown={addOnEnter}
           />
           <Button variant="outline" onClick={addLine} disabled={!pick || !val}>Add</Button>
         </div>

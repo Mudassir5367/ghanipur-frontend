@@ -16,6 +16,8 @@ export default function DashboardPage() {
 
   const money = (v?: number) => (isLoading ? '…' : formatPKR(v ?? 0));
   const num = (v?: number) => (isLoading ? '…' : String(v ?? 0));
+  const signedMoney = (v: number) => (v < 0 ? `– ${formatPKR(Math.abs(v))}` : formatPKR(v));
+  const canViewExpenses = user?.role === 'SUPER_ADMIN' || !!user?.permissions?.includes('EXPENSE_VIEW');
 
   // Quantity sold is reported per unit (L, kg, pcs) — summing across units is meaningless.
   const qtyUnits = data?.qtyByUnit ?? [];
@@ -42,8 +44,15 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Today's Sales value = today's sales + TODAY's outstanding dues only (not previous). */}
-        <StatCard label="Today's Sales" value={money((data?.sales.totalMinor ?? 0) + (data?.todayOutstandingMinor ?? 0))} tone="green" sublabel={`${num(data?.sales.count)} sales + ${money(data?.todayOutstandingMinor)} outstanding today`} href="/dashboard/sales" />
+        {/* Today's Sales = everything sold today (cash + credit sales + deliveries) at full value.
+            Credit/unpaid amounts are already inside those totals, so outstanding is never added on top. */}
+        <StatCard
+          label="Today's Sales"
+          value={money(data?.salesValue?.totalMinor ?? data?.sales.totalMinor)}
+          tone="green"
+          sublabel={`${num(data?.salesValue?.saleCount ?? data?.sales.count)} sales + ${num(data?.salesValue?.deliveryCount ?? 0)} deliveries · cash & credit`}
+          href="/dashboard/sales"
+        />
         <StatCard label="Cash Sales" value={money(data?.sales.cashMinor)} tone="blue" sublabel="View sales" href="/dashboard/sales" />
         <StatCard label="Credit Sales" value={money(data?.sales.creditMinor)} tone="amber" sublabel="View sales" href="/dashboard/sales" />
         <StatCard label="Outstanding" value={money(data?.outstandingMinor)} tone="red" sublabel="Customers with dues" href="/dashboard/customers" />
@@ -53,6 +62,21 @@ export default function DashboardPage() {
         <StatCard label="Remaining Stock" value={stockValue} sublabel={stockSub} tone="blue" href="/dashboard/inventory" />
         <StatCard label="Deliveries" value={num(data?.deliveries)} sublabel="Today" href="/dashboard/deliveries" />
         <StatCard label="Low Stock" value={num(data?.lowStockCount)} tone={(data?.lowStockCount ?? 0) > 0 ? 'amber' : 'green'} sublabel="Products" href="/dashboard/inventory" />
+        {/* Net Profit = today's profit − today's expenditure (a loss shows in red). */}
+        <StatCard
+          label="Net Profit"
+          value={isLoading ? '…' : signedMoney(data?.netProfitMinor ?? 0)}
+          tone={(data?.netProfitMinor ?? 0) < 0 ? 'red' : 'green'}
+          sublabel={isLoading ? '…' : `Profit ${formatPKR(data?.profitMinor ?? 0)} − expenses ${formatPKR(data?.expenses?.totalMinor ?? 0)}`}
+          href="/dashboard/net-profit"
+        />
+        <StatCard
+          label="Expenditure"
+          value={money(data?.expenses?.totalMinor)}
+          tone="amber"
+          sublabel={isLoading ? '…' : `${data?.expenses?.count ?? 0} expenses today`}
+          href={canViewExpenses ? '/dashboard/expenses' : undefined}
+        />
       </div>
 
       <Card>

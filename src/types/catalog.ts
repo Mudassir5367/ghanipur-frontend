@@ -38,6 +38,12 @@ export interface Product {
   purchaseCostMinor: number;
   minStock: number;
   currentStock: number;
+  /** Ledger-derived; only present on GET /products/:id. */
+  openingStock?: number;
+  /** Default supplier/vendor. */
+  supplier?: string;
+  /** Average cost price across stock purchases (weighted by quantity) — what sales are costed at. */
+  avgCostMinor?: number;
   trackInventory: boolean;
   isAvailable: boolean;
   status: 'ACTIVE' | 'INACTIVE';
@@ -49,6 +55,9 @@ export interface InventoryTxn {
   quantity: number;
   balanceAfter: number;
   note?: string;
+  /** Stock purchases: cost price per unit and supplier. */
+  unitCostMinor?: number;
+  supplier?: string;
   occurredAt: string;
   performedBy?: { name: string } | null;
 }
