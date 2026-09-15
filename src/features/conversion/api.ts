@@ -1,8 +1,8 @@
 import { api } from '@/lib/api';
 import type { ApiSuccess, PageMeta } from '@/types/api';
 
-/** Milk → Sweet Milk / Yogurt yield: 96 from every 100 (must match the backend CONVERSION_RATE). */
-export const CONVERSION_RATE = 0.96;
+/** Milk → Sweet Milk / Yogurt yield: 92 from every 100 (must match the backend CONVERSION_RATE). */
+export const CONVERSION_RATE = 0.92;
 
 export type ConversionOutputKind = 'SWEET_MILK' | 'YOGURT';
 export const OUTPUT_LABEL: Record<string, string> = { SWEET_MILK: 'Sweet Milk', YOGURT: 'Yogurt', OTHER: 'Other' };
@@ -59,7 +59,7 @@ export interface CreateConversionPayload {
 
 /**
  * Client-side preview mirroring the backend computeConversion (kept in sync):
- * output = Milk × 0.96; cost price per output unit keeps the Milk's total value.
+ * output = Milk × 0.92; cost price per output unit keeps the Milk's total value.
  */
 export function previewConversion(quantity: number, sourceUnitPriceMinor: number) {
   const convertedQuantity = Math.round(quantity * CONVERSION_RATE * 1000) / 1000;

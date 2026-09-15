@@ -61,7 +61,7 @@ export default function ConversionsPage() {
   const [newCost, setNewCost] = useState('');
   const [newUnitId, setNewUnitId] = useState('');
   useEffect(() => {
-    // Yield is quoted in kg ("96 kg per 100"), so default the new output to kg.
+    // Yield is quoted in kg ("92 kg per 100"), so default the new output to kg.
     if (!newUnitId && units?.length) setNewUnitId((units.find((u) => u.symbol === 'kg') ?? units[0]!)._id);
   }, [units, newUnitId]);
   const createOutput = useMutation({

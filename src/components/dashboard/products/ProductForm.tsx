@@ -107,14 +107,12 @@ export function ProductForm({ open, onClose, product }: Props) {
     });
   };
 
-  // Opening stock can't exceed the stock actually available: none yet for a new
-  // product, the current stock when editing. Only checked when the value is set or
-  // changed, so products sold down since can still have other details edited.
+  // Add product: any opening stock is accepted — it becomes the product's available stock.
+  // Edit product: a changed opening stock can't exceed the current stock. Only checked
+  // when the value is changed, so products sold down since can still be edited.
   const openingNum = form.openingStock.trim() === '' ? null : Number(form.openingStock);
-  const availableStock = isEdit ? (detail?.currentStock ?? product?.currentStock ?? 0) : 0;
-  const openingBeingSet = isEdit
-    ? loadedOpening !== null && openingNum !== null && openingNum !== loadedOpening
-    : openingNum !== null && openingNum > 0;
+  const availableStock = detail?.currentStock ?? product?.currentStock ?? 0;
+  const openingBeingSet = isEdit && loadedOpening !== null && openingNum !== null && openingNum !== loadedOpening;
   const openingError = openingBeingSet && openingNum! > availableStock
     ? 'This much stock is not available. Please add stock first.'
     : undefined;
@@ -226,7 +224,7 @@ export function ProductForm({ open, onClose, product }: Props) {
         )}
         <div className="grid grid-cols-2 gap-4">
           <Input label="Min stock (alert)" type="number" min="0" value={form.minStock} onChange={set('minStock')} />
-          {!isEdit && <Input label="Opening stock" type="number" min="0" value={form.openingStock} onChange={set('openingStock')} hint="Optional" error={openingError} />}
+          {!isEdit && <Input label="Opening stock" type="number" step="any" min="0" value={form.openingStock} onChange={set('openingStock')} hint="Optional — becomes the available stock" />}
           {isEdit && product!.trackInventory && (
             <Input label="Opening stock" type="number" step="any" min="0"
               value={detailLoading && loadedOpening === null ? '' : form.openingStock}

@@ -39,11 +39,34 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+// Shop suspended by the super admin while this admin/staff was logged in: the backend
+// rejects every call with SHOP_SUSPENDED (and ends the session) — log out here and send
+// them to the login page, once, however many requests were in flight.
+const FORCED_LOGOUT_CODES = new Set(['SHOP_SUSPENDED', 'ACCOUNT_DISABLED']);
+let forcedLogout = false;
+
+function forceLogout(code: string) {
+  if (forcedLogout) return;
+  forcedLogout = true;
+  useAuthStore.getState().clear();
+  if (typeof window !== 'undefined') {
+    // Full navigation also drops any cached dashboard data.
+    window.location.replace(`/login?reason=${code === 'ACCOUNT_DISABLED' ? 'disabled' : 'suspended'}`);
+  }
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<ApiError>) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
     const isAuthCall = original?.url?.includes('/auth/');
+    const code = error.response?.data?.code;
+    // Only for calls made with a session — a failed login just shows its own error.
+    const hadSession = !!original?.headers?.get('Authorization') && !original?.url?.includes('/auth/login');
+    if (error.response?.status === 403 && code && FORCED_LOGOUT_CODES.has(code) && hadSession) {
+      forceLogout(code);
+      return Promise.reject(error);
+    }
     if (error.response?.status === 401 && original && !original._retried && !isAuthCall) {
       original._retried = true;
       refreshing = refreshing ?? refreshAccessToken();
