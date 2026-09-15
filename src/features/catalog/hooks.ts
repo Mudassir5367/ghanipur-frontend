@@ -47,20 +47,39 @@ export function useProducts(filters: catalog.ProductFilters) {
   return useQuery({ queryKey: ['products', filters], queryFn: () => catalog.listProducts(filters) });
 }
 
+/** All products for pickers. Keyed under 'products' so product mutations refresh it. */
+export function useAllProducts() {
+  return useQuery({ queryKey: ['products', 'all'], queryFn: catalog.listAllProducts });
+}
+
+export function useProduct(id: string | null) {
+  return useQuery({ queryKey: ['product', id], queryFn: () => catalog.getProduct(id!), enabled: !!id });
+}
+
 export function useCreateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: catalog.createProduct,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product created'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['suppliers'] }); toast.success('Product created'); },
     onError,
   });
+}
+
+/** Supplier names for the datalist suggestions in Add Product / Add Stock. */
+export function useSuppliers() {
+  return useQuery({ queryKey: ['suppliers'], queryFn: catalog.listSuppliers, staleTime: 60_000 });
 }
 
 export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<catalog.ProductPayload> }) => catalog.updateProduct(id, payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast.success('Product updated'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['product'] });
+      qc.invalidateQueries({ queryKey: ['ledger'] }); // an opening-stock edit adds a ledger entry
+      toast.success('Product updated');
+    },
     onError,
   });
 }
@@ -77,11 +96,13 @@ export function useDeleteProduct() {
 export function useRecordInventory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ productId, payload }: { productId: string; payload: { type: string; quantity: number; note?: string } }) =>
+    mutationFn: ({ productId, payload }: { productId: string; payload: catalog.InventoryPayload }) =>
       catalog.recordInventory(productId, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['products'] }); // stock + average cost
+      qc.invalidateQueries({ queryKey: ['product'] });
       qc.invalidateQueries({ queryKey: ['ledger'] });
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
       toast.success('Stock updated');
     },
     onError,

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { PaymentStatusBadge } from '@/components/dashboard/deliveries/status';
-import { useCustomers } from '@/features/sales/hooks';
+import { useAllCustomers } from '@/features/sales/hooks';
 import { useSettings } from '@/features/shop/hooks';
 import { useCustomerDeliverySummary, useAddDeliveryPayment } from '@/features/delivery/hooks';
 import { formatPKR } from '@/lib/utils';
@@ -17,7 +17,7 @@ import { formatPKR } from '@/lib/utils';
  * Total / Paid / Outstanding and paying updates the same record everywhere.
  */
 export function DeliveryPaymentPanel({ presetCustomerId }: { presetCustomerId?: string }) {
-  const { data: customerData } = useCustomers({});
+  const { data: customerData } = useAllCustomers(); // every customer, not one page
   const { data: settings } = useSettings();
   const [customerId, setCustomerId] = useState(presetCustomerId ?? '');
   const { data: summary, isLoading } = useCustomerDeliverySummary(customerId || null);

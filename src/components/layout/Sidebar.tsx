@@ -10,6 +10,7 @@ const nav = [
   { href: '/dashboard/sales', label: 'Sales' },
   { href: '/dashboard/inventory', label: 'Inventory' },
   { href: '/dashboard/conversions', label: 'Conversions' },
+  { href: '/dashboard/conversions/history', label: 'Conversion History' },
   { href: '/dashboard/products', label: 'Products' },
   { href: '/dashboard/categories', label: 'Categories' },
   { href: '/dashboard/customers', label: 'Customers' },
@@ -28,7 +29,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <BrandMark />
       </Link>
       {nav.map((item) => {
-        const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+        // Only the most specific match is active (so /conversions/history doesn't also light up /conversions).
+        const matches = (href: string) => pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`));
+        const active = matches(item.href) && !nav.some((o) => o.href.length > item.href.length && matches(o.href));
         return (
           <Link
             key={item.href}

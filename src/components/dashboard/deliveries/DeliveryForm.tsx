@@ -5,8 +5,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { useProducts } from '@/features/catalog/hooks';
-import { useCustomers } from '@/features/sales/hooks';
+import { useAllProducts } from '@/features/catalog/hooks';
+import { useAllCustomers } from '@/features/sales/hooks';
 import { useCreateDelivery, useUpdateDelivery } from '@/features/delivery/hooks';
 import { formatPKR } from '@/lib/utils';
 import { refSymbol, type Product } from '@/types/catalog';
@@ -21,8 +21,8 @@ export function DeliveryForm({ open, onClose, presetCustomerId, deliverNow, edit
   deliverNow?: boolean;
   editDelivery?: Delivery | null;
 }) {
-  const { data: productData } = useProducts({});
-  const { data: customerData } = useCustomers({});
+  const { data: productData } = useAllProducts(); // every product, not one page
+  const { data: customerData } = useAllCustomers(); // every customer, not one page
   const create = useCreateDelivery();
   const update = useUpdateDelivery();
   const isEdit = !!editDelivery;
@@ -39,7 +39,7 @@ export function DeliveryForm({ open, onClose, presetCustomerId, deliverNow, edit
   const [address, setAddress] = useState('');
   const [assignedToName, setAssignedToName] = useState('');
 
-  const products = useMemo(() => productData?.products ?? [], [productData]);
+  const products = useMemo(() => productData ?? [], [productData]);
   const productMap = useMemo(() => new Map(products.map((p) => [p._id, p])), [products]);
 
   const subtotal = lines.reduce((s, l) => s + Math.round(l.unitPriceMinor * l.quantity), 0);

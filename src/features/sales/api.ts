@@ -10,6 +10,20 @@ export async function listCustomers(filters: CustomerFilters = {}): Promise<{ cu
   const { data } = await api.get<ApiSuccess<Customer[]>>('/customers', { params: { limit: 15, ...filters } });
   return { customers: data.data, meta: data.meta! };
 }
+/**
+ * Every customer, for pickers (deliveries, sales, payments). The list screen pages
+ * at 15; a picker must offer everyone, so this walks the pages at the API's 100 cap.
+ * Same `{ customers }` shape as listCustomers so pickers read it identically.
+ */
+export async function listAllCustomers(): Promise<{ customers: Customer[] }> {
+  const customers: Customer[] = [];
+  for (let page = 1; ; page += 1) {
+    const { data } = await api.get<ApiSuccess<Customer[]>>('/customers', { params: { limit: 100, page } });
+    customers.push(...data.data);
+    if (!data.meta || page >= data.meta.totalPages) break;
+  }
+  return { customers };
+}
 export async function getCustomer(id: string): Promise<Customer> {
   const { data } = await api.get<ApiSuccess<{ customer: Customer }>>(`/customers/${id}`);
   return data.data.customer;
@@ -43,6 +57,11 @@ export async function getSale(id: string): Promise<{ sale: Sale; items: SaleItem
 }
 export async function createSale(payload: CreateSalePayload): Promise<Sale> {
   const { data } = await api.post<ApiSuccess<{ sale: Sale }>>('/sales', payload);
+  return data.data.sale;
+}
+/** Correct a confirmed sale — takes the full sale again (every field is editable). */
+export async function updateSale(id: string, payload: CreateSalePayload): Promise<Sale> {
+  const { data } = await api.patch<ApiSuccess<{ sale: Sale }>>(`/sales/${id}`, payload);
   return data.data.sale;
 }
 export async function reverseSale(id: string): Promise<Sale> {

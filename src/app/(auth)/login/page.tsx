@@ -10,7 +10,13 @@ import { useLogin } from '@/features/auth/hooks';
 import { apiErrorMessage } from '@/lib/api';
 
 function LoginForm() {
-  const redirect = useSearchParams().get('redirect');
+  const params = useSearchParams();
+  const redirect = params.get('redirect');
+  // Set when a logged-in session was ended because the shop/account was suspended.
+  const reason = params.get('reason');
+  const forcedOutMessage = reason === 'suspended'
+    ? 'Your shop has been suspended, so you have been logged out. Please contact the platform administrator.'
+    : reason === 'disabled' ? 'Your account has been disabled, so you have been logged out.' : null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const login = useLogin(redirect);
@@ -27,6 +33,10 @@ function LoginForm() {
           <h1 className="text-xl font-semibold text-slate-900">Welcome back</h1>
           <p className="mt-1 text-sm text-slate-500">Log in to your Ghanipur account.</p>
         </div>
+
+        {forcedOutMessage && !login.isError && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{forcedOutMessage}</div>
+        )}
 
         {login.isError && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{apiErrorMessage(login.error)}</div>

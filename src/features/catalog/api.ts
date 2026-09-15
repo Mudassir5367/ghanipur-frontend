@@ -39,6 +39,7 @@ export interface ProductPayload {
   unitId: string;
   sellingPrice: number;
   purchaseCost?: number;
+  supplier?: string;
   minStock?: number;
   openingStock?: number;
   description?: string;
@@ -70,6 +71,20 @@ export async function listProducts(filters: ProductFilters = {}): Promise<{ prod
   const { data } = await api.get<ApiSuccess<Product[]>>('/products', { params: { limit: 15, ...filters } });
   return { products: data.data, meta: data.meta! };
 }
+/**
+ * Every product, for pickers (New Delivery, Quick Sale, Conversions). List screens
+ * page at 15, but a picker must offer all products, so this walks the pages at the
+ * API's 100-row cap until none are left.
+ */
+export async function listAllProducts(): Promise<Product[]> {
+  const all: Product[] = [];
+  for (let page = 1; ; page += 1) {
+    const { data } = await api.get<ApiSuccess<Product[]>>('/products', { params: { limit: 100, page } });
+    all.push(...data.data);
+    if (!data.meta || page >= data.meta.totalPages) break;
+  }
+  return all;
+}
 export async function getProduct(id: string): Promise<Product> {
   const { data } = await api.get<ApiSuccess<{ product: Product }>>(`/products/${id}`);
   return data.data.product;
@@ -87,9 +102,18 @@ export async function deleteProduct(id: string): Promise<void> {
 }
 
 // ---- Inventory ----
-export async function recordInventory(productId: string, payload: { type: string; quantity: number; note?: string }): Promise<{ currentStock: number }> {
-  const { data } = await api.post<ApiSuccess<{ currentStock: number }>>(`/products/${productId}/inventory`, payload);
+/** A stock movement. Stock In is a purchase and also takes the supplier and cost price (rupees). */
+export interface InventoryPayload { type: string; quantity: number; note?: string; supplier?: string; unitCost?: number }
+
+export async function recordInventory(productId: string, payload: InventoryPayload): Promise<{ currentStock: number; avgCostMinor: number }> {
+  const { data } = await api.post<ApiSuccess<{ currentStock: number; avgCostMinor: number }>>(`/products/${productId}/inventory`, payload);
   return data.data;
+}
+
+/** Supplier/vendor names already used by the shop (for suggestions). */
+export async function listSuppliers(): Promise<string[]> {
+  const { data } = await api.get<ApiSuccess<{ suppliers: string[] }>>('/products/suppliers');
+  return data.data.suppliers;
 }
 export async function getLedger(productId: string): Promise<InventoryTxn[]> {
   const { data } = await api.get<ApiSuccess<InventoryTxn[]>>(`/products/${productId}/inventory`, { params: { limit: 50 } });
